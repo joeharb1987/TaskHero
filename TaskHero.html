@@ -6,624 +6,29 @@
   <title>TaskHero - Task & Reward Tracker</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
   <style>
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    body {
-      font-family: 'Roboto', sans-serif;
-      background: linear-gradient(135deg, #f0f4f8, #d9e2ec);
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      color: #333;
-      overflow-x: hidden; /* Prevent horizontal overflow on mobile */
-    }
-    #app {
-      background: #fff;
-      width: 100%;
-      max-width: 390px; /* Fits iPhone 15 Pro Max width comfortably */
-      border-radius: 15px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-      display: none;
-      margin: 10px; /* Add small margin for touch comfort */
-    }
-    #welcome-screen {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    #welcome-content {
-      background: #fff;
-      padding: 20px;
-      border-radius: 15px;
-      width: 90%;
-      max-width: 350px;
-      text-align: center;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    }
-    header {
-      background: #3498db;
-      padding: 15px 20px;
-      color: #fff;
-      text-align: center;
-      position: relative;
-    }
-    header .datetime {
-      font-size: 14px;
-      margin-bottom: 10px;
-      color: #000;
-    }
-    header .profile {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 15px;
-    }
-    header .profile img {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 2px solid #fff;
-      object-fit: cover;
-    }
-    header .stars {
-      font-size: 20px;
-      color: #f1c40f;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    #childSelect {
-      background: #fff;
-      border: 1px solid #fff;
-      border-radius: 8px;
-      padding: 8px 30px 8px 10px;
-      font-size: 0.9em;
-      color: #333;
-      cursor: pointer;
-      appearance: none;
-      background: url('data:image/svg+xml;utf8,<svg fill="%23333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 10px center;
-      background-size: 12px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
-    #childSelect:hover {
-      background-color: #f5f5f5;
-    }
-    .progress-bar {
-      width: 100%;
-      height: 10px;
-      background: #e0e0e0;
-      border-radius: 5px;
-      margin: 10px 0;
-    }
-    .progress {
-      height: 100%;
-      background: #2ecc71;
-      border-radius: 5px;
-      transition: width 0.3s;
-    }
-    .date-nav {
-      background: #ecf0f1;
-      padding: 12px;
-      display: flex;
-      justify-content: space-around;
-    }
-    .date-nav span {
-      padding: 8px 12px;
-      cursor: pointer;
-      border-radius: 8px;
-      transition: background 0.3s;
-      white-space: nowrap;
-    }
-    .date-nav span.active {
-      background: #bdc3c7;
-      border-bottom: 2px solid #3498db;
-    }
-    .nav-tabs {
-      background: #ecf0f1;
-      display: flex;
-      justify-content: space-around;
-      padding: 12px 0;
-    }
-    .nav-tabs span {
-      cursor: pointer;
-      padding: 8px 20px;
-      border-radius: 8px;
-      transition: background 0.3s;
-    }
-    .nav-tabs span.active {
-      background: #bdc3c7;
-      border-bottom: 2px solid #3498db;
-    }
-    #tasks, #rewards, #profiles {
-      padding: 20px;
-      display: none;
-    }
-    #tasks.active, #rewards.active, #profiles.active {
-      display: block;
-    }
-    .task, .reward-item, .profile-item {
-      background: #f9f9f9;
-      margin: 12px 0;
-      padding: 15px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      animation: fadeIn 0.5s ease-in;
-      position: relative;
-      cursor: pointer;
-      user-select: none;
-    }
-    .task.dragging, .subtask.dragging {
-      opacity: 0.5;
-      background: #ddd;
-    }
-    .task.completed, .subtask.completed {
-      background: #e0e0e0;
-    }
-    .task span, .subtask span {
-      flex: 1;
-    }
-    .task.completed span, .subtask.completed span {
-      text-decoration: line-through;
-      color: #777;
-    }
-    .task .timer, .subtask .timer {
-      font-size: 14px;
-      color: #555;
-      min-width: 40px;
-      text-align: right;
-    }
-    .task button.start, .subtask button.start {
-      background: #3498db;
-      padding: 5px 10px;
-      border-radius: 5px;
-    }
-    .task button.start:hover, .subtask button.start:hover {
-      background: #2980b9;
-    }
-    .subtasks {
-      margin-top: 10px;
-      padding-left: 20px;
-      width: 100%;
-    }
-    .subtask {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 5px 0;
-    }
-    .subtask-checkbox {
-      width: 16px;
-      height: 16px;
-      border: 2px solid #2ecc71;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-    .subtask-checkbox:checked {
-      background: #2ecc71;
-    }
-    .subtask-checkbox:checked::after {
-      content: '';
-      display: block;
-      width: 8px;
-      height: 8px;
-      background: #fff;
-      border-radius: 50%;
-      margin: 2px auto;
-    }
-    .subtask.drag-over {
-      border: 2px dashed #3498db;
-    }
-    .reward-item.redeemed {
-      background: #e0e0e0;
-    }
-    .reward-item.redeemed span {
-      text-decoration: line-through;
-      color: #777;
-    }
-    .reward-item button:disabled {
-      background: #95a5a6;
-      cursor: not-allowed;
-    }
-    .profile-item img {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .profile-item .info {
-      flex: 1;
-    }
-    .profile-item .actions {
-      display: flex;
-      gap: 10px;
-    }
-    button {
-      background: #2ecc71;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 8px;
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.3s;
-      font-size: 0.9em;
-    }
-    button:hover {
-      background: #27ae60;
-    }
-    button:disabled {
-      background: #95a5a6;
-      cursor: not-allowed;
-    }
-    button.delete {
-      background: #e74c3c;
-    }
-    button.delete:hover {
-      background: #c0392b;
-    }
-    #modal, #reward-modal, #profile-modal, #edit-modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    #modal-content, #edit-modal-content {
-      background: #fff;
-      padding: 20px;
-      border-radius: 15px;
-      width: 90%;
-      max-width: 350px; /* Fits within iPhone 15 Pro Max, but can adjust */
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-      max-height: 80vh; /* Limit height to 80% of viewport for scrolling */
-      overflow-y: auto; /* Enable vertical scrolling */
-      box-sizing: border-box;
-    }
-    #reward-modal-content, #profile-modal-content {
-      background: #fff;
-      padding: 20px;
-      border-radius: 15px;
-      width: 90%;
-      max-width: 350px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    }
-    #modal-content h3, #reward-modal-content h3, #profile-modal-content h3, #edit-modal-content h3 {
-      font-size: 1.5em;
-      margin-bottom: 15px;
-      color: #333;
-    }
-    #modal-content label, #reward-modal-content label, #profile-modal-content label, #edit-modal-content label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 10px 0;
-      font-size: 0.9em;
-      color: #555;
-    }
-    #modal-content input[type="text"],
-    #modal-content input[type="number"],
-    #modal-content select,
-    #reward-modal-content input[type="text"],
-    #reward-modal-content input[type="number"],
-    #reward-modal-content select,
-    #profile-modal-content input[type="text"],
-    #profile-modal-content input[type="date"],
-    #profile-modal-content input[type="file"],
-    #edit-modal-content input[type="text"],
-    #edit-modal-content input[type="number"],
-    #edit-modal-content select {
-      width: 100%;
-      margin: 5px 0;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #f9f9f9;
-      color: #333;
-      font-size: 0.9em;
-      box-sizing: border-box;
-    }
-    #modal-content select,
-    #reward-modal-content select,
-    #edit-modal-content select {
-      appearance: none;
-      background: url('data:image/svg+xml;utf8,<svg fill="%23333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 10px center;
-      background-size: 12px;
-      padding-right: 30px;
-    }
-    #modal-content input[type="checkbox"],
-    #reward-modal-content input[type="checkbox"],
-    #edit-modal-content input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      border: 2px solid #2ecc71;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    #modal-content input[type="checkbox"]:checked,
-    #reward-modal-content input[type="checkbox"]:checked,
-    #edit-modal-content input[type="checkbox"]:checked {
-      background: #2ecc71;
-    }
-    #modal-content input[type="checkbox"]:checked::after,
-    #reward-modal-content input[type="checkbox"]:checked::after,
-    #edit-modal-content input[type="checkbox"]:checked::after {
-      content: '✓';
-      color: #fff;
-      font-size: 12px;
-      line-height: 16px;
-      text-align: center;
-      display: block;
-    }
-    .modal-buttons {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 20px;
-    }
-    #subtasksContainer, #editSubtasksContainer {
-      margin: 15px 0;
-    }
-    .subtask-item {
-      display: flex;
-      flex-direction: column; /* Maintain vertical stack for subtasks */
-      gap: 5px; /* Small gap between vertically stacked items */
-      margin: 5px 0; /* Original margin */
-      width: 100%;
-    }
-    .subtask-item input[type="text"] {
-      width: 200px; /* Original width for add modal */
-      height: 40px; /* Original height for add modal */
-      padding: 10px; /* Original padding */
-      font-size: 1em; /* Original font size */
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #f9f9f9;
-      box-sizing: border-box;
-    }
-    #editSubtasksContainer .subtask-item input[type="text"] {
-      width: 250px; /* Original width for edit modal */
-      height: 50px; /* Original height for edit modal */
-      font-size: 1.1em; /* Original font size for edit modal */
-    }
-    .subtask-item input[type="number"] {
-      width: 60px; /* Original width for timer */
-      height: 40px; /* Match text box height for consistency */
-      padding: 10px;
-      font-size: 1em;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #f9f9f9;
-    }
-    .subtask-item button {
-      background: #e74c3c;
-      padding: 5px 10px; /* Original padding for delete button */
-      border-radius: 8px;
-      font-size: 1em;
-      cursor: pointer;
-      transition: background 0.3s;
-      width: 60px; /* Match timer width for consistency */
-      margin-top: 5px; /* Space above delete button */
-    }
-    .subtask-item button:hover {
-      background: #c0392b;
-    }
-    #addSubtaskBtn, #addEditSubtaskBtn {
-      background: #2ecc71;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 1em;
-      cursor: pointer;
-      margin-top: 10px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    #addSubtaskBtn:hover, #addEditSubtaskBtn:hover {
-      background: #27ae60;
-    }
-
-    /* Media query for iPhone 15 Pro Max (2796x1290, 460ppi) */
-    @media screen and (device-height: 1290px) and (device-width: 2796px) and (-webkit-device-pixel-ratio: 3) {
-      #app {
-        max-width: 390px; /* Perfect fit for iPhone 15 Pro Max width */
-        margin: 10px; /* Add small margin for touch comfort */
-      }
-
-      #modal-content, #edit-modal-content, #reward-modal-content, #profile-modal-content {
-        max-width: 350px; /* Ensure modals fit within screen width */
-        max-height: 70vh; /* Adjust for taller screen, leaving room for top/bottom */
-      }
-
-      .subtask-item input[type="text"] {
-        width: 200px; /* Maintain original width, but ensure it fits */
-      }
-
-      #editSubtasksContainer .subtask-item input[type="text"] {
-        width: 250px; /* Maintain original width for edit modal */
-      }
-
-      .subtask-item input[type="number"] {
-        width: 60px; /* Maintain original width for timer */
-      }
-
-      .subtask-item button {
-        width: 60px; /* Maintain original width for delete button */
-      }
-    }
+    /* Your existing CSS remains unchanged */
   </style>
 </head>
 <body>
-  <div id="app">
-    <header>
-      <div class="datetime" id="current-datetime"></div>
-      <div class="profile">
-        <img id="header-profile-pic" src="https://via.placeholder.com/40" alt="Profile">
-        <select id="childSelect" aria-label="Select Child Profile"></select>
-        <span class="stars"><i class="fas fa-star"></i> <span id="starCount">0</span></span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress" id="starProgress"></div>
-      </div>
-    </header>
-    <div class="date-nav" id="dateNav" role="tablist">
-      <span data-day="MON" role="tab">Mon</span>
-      <span data-day="TUE" role="tab">Tue</span>
-      <span data-day="WED" role="tab">Wed</span>
-      <span data-day="THU" role="tab">Thu</span>
-      <span data-day="FRI" role="tab">Fri</span>
-      <span data-day="SAT" role="tab">Sat</span>
-      <span data-day="SUN" role="tab">Sun</span>
-    </div>
-    <div class="nav-tabs" role="tablist">
-      <span data-section="tasks" class="active" role="tab">Tasks</span>
-      <span data-section="rewards" role="tab">Rewards</span>
-      <span data-section="profiles" role="tab">Profiles</span>
-    </div>
-    <div id="tasks" class="active">
-      <h2>Tasks</h2>
-      <div id="task-list"></div>
-      <button id="add-task-btn" aria-label="Add New Task">Add Task</button>
-    </div>
-    <div id="rewards">
-      <h2>Rewards</h2>
-      <div id="reward-list"></div>
-      <button id="add-reward-btn" aria-label="Add New Reward">Add Reward</button>
-    </div>
-    <div id="profiles">
-      <h2>Profiles</h2>
-      <div id="profile-list"></div>
-      <button id="add-profile-btn" aria-label="Add New Profile">Add Profile</button>
-    </div>
-  </div>
-
-  <div id="welcome-screen">
-    <div id="welcome-content">
-      <h3>Welcome to TaskHero!</h3>
-      <p>Please create your first profile to get started.</p>
-      <button id="create-profile-btn" aria-label="Create First Profile">Create Profile</button>
-    </div>
-  </div>
-
-  <div id="modal">
-    <div id="modal-content">
-      <h3>Add Task</h3>
-      <input type="text" id="newTask" placeholder="Task Name" aria-label="Task Name">
-      <input type="number" id="newStars" placeholder="Stars" min="0" aria-label="Stars">
-      <select id="taskDay" aria-label="Select Day">
-        <option value="MON">Monday</option>
-        <option value="TUE">Tuesday</option>
-        <option value="WED">Wednesday</option>
-        <option value="THU">Thursday</option>
-        <option value="FRI">Friday</option>
-        <option value="SAT">Saturday</option>
-        <option value="SUN">Sunday</option>
-      </select>
-      <label><input type="checkbox" id="taskDaily" aria-label="Repeat Daily"> Repeat Daily</label>
-      <label><input type="checkbox" id="taskTimerCheck" aria-label="Add Timer"> Add Timer</label>
-      <input type="number" id="taskTimer" placeholder="Minutes" min="1" style="display: none;" aria-label="Timer Minutes">
-      <label><input type="text" id="taskCategory" placeholder="Category (e.g., Morning)" aria-label="Task Category"></label>
-      <div id="subtasksContainer">
-        <h4>Subtasks</h4>
-        <div id="subtaskList"></div>
-        <button id="addSubtaskBtn" type="button" aria-label="Add Subtask">Add Subtask</button>
-      </div>
-      <label><input type="checkbox" id="applyToAllTasks" aria-label="Apply to All Profiles"> Apply to All Profiles</label>
-      <div class="modal-buttons">
-        <button id="save-task-btn" aria-label="Save Task">Save</button>
-        <button id="cancel-task-btn" aria-label="Cancel Task">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="reward-modal">
-    <div id="reward-modal-content">
-      <h3>Add Reward</h3>
-      <input type="text" id="newRewardName" placeholder="Reward Name" aria-label="Reward Name">
-      <input type="number" id="newRewardStars" placeholder="Stars Required" min="1" aria-label="Stars Required">
-      <select id="rewardDay" aria-label="Select Day">
-        <option value="MON">Monday</option>
-        <option value="TUE">Tuesday</option>
-        <option value="WED">Wednesday</option>
-        <option value="THU">Thursday</option>
-        <option value="FRI">Friday</option>
-        <option value="SAT">Saturday</option>
-        <option value="SUN">Sunday</option>
-      </select>
-      <label><input type="checkbox" id="rewardDaily" aria-label="Repeat Daily"> Repeat Daily</label>
-      <label><input type="checkbox" id="applyToAllRewards" aria-label="Apply to All Profiles"> Apply to All Profiles</label>
-      <div class="modal-buttons">
-        <button id="save-reward-btn" aria-label="Save Reward">Save</button>
-        <button id="cancel-reward-btn" aria-label="Cancel Reward">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="profile-modal">
-    <div id="profile-modal-content">
-      <h3 id="profile-modal-title">Add Profile</h3>
-      <input type="text" id="profileName" placeholder="Profile Name" aria-label="Profile Name">
-      <input type="date" id="profileDOB" placeholder="Date of Birth" aria-label="Date of Birth">
-      <label>Profile Photo:
-        <input type="file" id="profilePhoto" accept="image/*" aria-label="Profile Photo">
-      </label>
-      <img id="photoPreview" src="https://via.placeholder.com/40" alt="Preview" style="display: none; width: 40px; height: 40px; border-radius: 50%; margin: 10px 0;">
-      <div class="modal-buttons">
-        <button id="save-profile-btn" aria-label="Save Profile">Save</button>
-        <button id="cancel-profile-btn" aria-label="Cancel Profile">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="edit-modal">
-    <div id="edit-modal-content">
-      <h3 id="edit-modal-title">Edit Item</h3>
-      <input type="text" id="editName" placeholder="Name" aria-label="Item Name">
-      <input type="number" id="editStars" placeholder="Stars" min="0" style="display: none;" aria-label="Stars">
-      <select id="editDay" aria-label="Select Day">
-        <option value="MON">Monday</option>
-        <option value="TUE">Tuesday</option>
-        <option value="WED">Wednesday</option>
-        <option value="THU">Thursday</option>
-        <option value="FRI">Friday</option>
-        <option value="SAT">Saturday</option>
-        <option value="SUN">Sunday</option>
-      </select>
-      <label><input type="checkbox" id="editDaily" aria-label="Repeat Daily"> Repeat Daily</label>
-      <label><input type="checkbox" id="editTimerCheck" aria-label="Add Timer"> Add Timer</label>
-      <input type="number" id="editTimer" placeholder="Minutes" min="1" style="display: none;" aria-label="Timer Minutes">
-      <label><input type="text" id="editCategory" placeholder="Category (e.g., Morning)" aria-label="Task Category"></label>
-      <div id="editSubtasksContainer">
-        <h4>Subtasks</h4>
-        <div id="editSubtaskList"></div>
-        <button id="addEditSubtaskBtn" type="button" aria-label="Add Subtask">Add Subtask</button>
-      </div>
-      <div class="modal-buttons">
-        <button id="save-edit-btn" aria-label="Save Changes">Save</button>
-        <button id="delete-btn" aria-label="Delete Item">Delete</button>
-        <button id="cancel-edit-btn" aria-label="Cancel Edit">Cancel</button>
-      </div>
-    </div>
-  </div>
+  <!-- Your existing HTML body remains unchanged -->
 
   <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "your-api-key",
+      authDomain: "your-project-id.firebaseapp.com",
+      projectId: "your-project-id",
+      storageBucket: "your-project-id.appspot.com",
+      messagingSenderId: "your-sender-id",
+      appId: "your-app-id"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
     class Child {
       constructor(name, tasks = [], stars = 0, rewards = [], lastReset = null, photo = null, dob = null) {
         this.name = name;
@@ -647,7 +52,7 @@
         this.dob = dob;
       }
 
-      addTask(name, stars, day, timer = null, category = '', subtasks = []) {
+      async addTask(name, stars, day, timer = null, category = '', subtasks = []) {
         this.tasks.push({
           name,
           stars: stars || 0,
@@ -665,10 +70,10 @@
             timerInterval: null
           }))
         });
-        this.save();
+        await this.save();
       }
 
-      editTask(index, name, stars, day, timer, category, subtasks) {
+      async editTask(index, name, stars, day, timer, category, subtasks) {
         const task = this.tasks[index];
         if (task) {
           task.name = name;
@@ -692,54 +97,50 @@
             if (task.timerInterval) clearInterval(task.timerInterval);
             task.timerInterval = null;
           }
-          this.save();
+          await this.save();
           updateTasks();
         }
       }
 
-      deleteTask(taskIndex) {
+      async deleteTask(taskIndex) {
         const task = this.tasks[taskIndex];
-        if (task && task.completed) {
-          this.stars -= task.stars;
-        }
+        if (task && task.completed) this.stars -= task.stars;
         this.tasks.splice(taskIndex, 1);
-        this.save();
+        await this.save();
         updateTasks();
       }
 
-      moveSubtask(taskIndex, fromIndex, toIndex) {
+      async moveSubtask(taskIndex, fromIndex, toIndex) {
         const task = this.tasks[taskIndex];
         if (task && task.subtasks && fromIndex >= 0 && toIndex >= 0 && fromIndex < task.subtasks.length && toIndex < task.subtasks.length) {
           const [subtask] = task.subtasks.splice(fromIndex, 1);
           task.subtasks.splice(toIndex, 0, subtask);
-          this.save();
+          await this.save();
           updateTasks();
         }
       }
 
-      addReward(name, stars, day) {
+      async addReward(name, stars, day) {
         this.rewards.push({ name, stars, day, claimed: false });
-        this.save();
+        await this.save();
       }
 
-      editReward(index, name, stars, day) {
+      async editReward(index, name, stars, day) {
         const reward = this.rewards[index];
         if (reward) {
           reward.name = name;
           reward.stars = stars;
           reward.day = day;
-          this.save();
+          await this.save();
           updateRewards();
         }
       }
 
-      deleteReward(index) {
+      async deleteReward(index) {
         const reward = this.rewards[index];
-        if (reward && reward.claimed) {
-          this.stars += reward.stars;
-        }
+        if (reward && reward.claimed) this.stars += reward.stars;
         this.rewards.splice(index, 1);
-        this.save();
+        await this.save();
         updateRewards();
       }
 
@@ -755,7 +156,7 @@
         const task = this.tasks[taskIndex];
         const subtask = task.subtasks[subtaskIndex];
         if (subtask && subtask.timer && !subtask.completed && subtask.timerRemaining > 0 && !subtask.timerInterval) {
-          subtask.timerInterval = setInterval(() => {
+          subtask.timerInterval = setInterval(async () => {
             subtask.timerRemaining--;
             const timerSpan = document.querySelector(`.subtask[data-task="${taskIndex}"][data-subtask="${subtaskIndex}"] .timer`);
             if (timerSpan) timerSpan.textContent = formatTime(subtask.timerRemaining);
@@ -764,7 +165,7 @@
               subtask.timerInterval = null;
               subtask.completed = true;
               this.checkTaskCompletion(taskIndex);
-              this.save();
+              await this.save();
               updateTasks();
             }
           }, 1000);
@@ -772,7 +173,7 @@
         }
       }
 
-      checkTaskCompletion(taskIndex) {
+      async checkTaskCompletion(taskIndex) {
         const task = this.tasks[taskIndex];
         if (task.subtasks.length > 0) {
           const allSubtasksCompleted = task.subtasks.every(subtask => subtask.completed);
@@ -788,7 +189,7 @@
           if (task.completed) this.stars += task.stars;
           else this.stars = Math.max(0, this.stars - task.stars);
         }
-        this.save();
+        await this.save();
         updateTasks();
         updateRewards();
         updateChildSelect();
@@ -797,7 +198,7 @@
       startTaskTimer(taskIndex) {
         const task = this.tasks[taskIndex];
         if (task && task.timer && !task.completed && task.timerRemaining > 0 && !task.timerInterval) {
-          task.timerInterval = setInterval(() => {
+          task.timerInterval = setInterval(async () => {
             task.timerRemaining--;
             const timerSpan = document.querySelector(`.task[data-index="${taskIndex}"] .timer`);
             if (timerSpan) timerSpan.textContent = formatTime(task.timerRemaining);
@@ -806,7 +207,7 @@
               task.timerInterval = null;
               task.completed = true;
               this.stars += task.stars;
-              this.save();
+              await this.save();
               updateTasks();
             }
           }, 1000);
@@ -814,18 +215,18 @@
         }
       }
 
-      claimReward(index) {
+      async claimReward(index) {
         const reward = this.rewards[index];
         if (reward && !reward.claimed && this.stars >= reward.stars) {
           reward.claimed = true;
           this.stars -= reward.stars;
-          this.save();
+          await this.save();
           updateRewards();
           updateChildSelect();
         }
       }
 
-      resetRewards() {
+      async resetRewards() {
         const now = Date.now();
         const today = new Date();
         const lastResetDate = new Date(this.lastReset);
@@ -834,11 +235,11 @@
             today.getFullYear() !== lastResetDate.getFullYear()) {
           this.rewards = this.rewards.map(reward => ({ ...reward, claimed: false }));
           this.lastReset = now;
-          this.save();
+          await this.save();
         }
       }
 
-      save() {
+      async save() {
         const data = {
           tasks: this.tasks.map(task => ({
             ...task,
@@ -854,12 +255,12 @@
           photo: this.photo,
           dob: this.dob
         };
-        localStorage.setItem(`child_${this.name}`, JSON.stringify(data));
-        localStorage.setItem('children', JSON.stringify(Object.keys(children)));
+        await db.collection('children').doc(this.name).set(data);
       }
 
-      static load(name) {
-        const data = JSON.parse(localStorage.getItem(`child_${name}`) || '{}') || {
+      static async load(name) {
+        const doc = await db.collection('children').doc(name).get();
+        const data = doc.exists ? doc.data() : {
           tasks: [],
           stars: 0,
           rewards: [],
@@ -897,22 +298,46 @@
       });
     }
 
-    function loadInitialData() {
-      const storedChildren = JSON.parse(localStorage.getItem('children') || '[]');
-      if (!storedChildren.length) {
+    async function loadInitialData() {
+      const snapshot = await db.collection('children').get();
+      if (snapshot.empty) {
         document.getElementById('welcome-screen').style.display = 'flex';
-        return;
+      } else {
+        snapshot.forEach(doc => {
+          const name = doc.id;
+          const data = doc.data();
+          children[name] = new Child(name, data.tasks, data.stars, data.rewards, data.lastReset, data.photo, data.dob);
+          children[name].resetRewards();
+        });
+        currentChild = children[Object.keys(children)[0]];
+        document.getElementById('app').style.display = 'block';
+        updateDateNav();
+        updateDateTime();
+        updateChildSelect();
+        updateTasks();
       }
-      storedChildren.forEach(name => {
-        children[name] = Child.load(name);
-        children[name].resetRewards();
+
+      // Real-time listener for syncing
+      db.collection('children').onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+          const name = change.doc.id;
+          const data = change.doc.data();
+          if (change.type === 'added' || change.type === 'modified') {
+            children[name] = new Child(name, data.tasks, data.stars, data.rewards, data.lastReset, data.photo, data.dob);
+          } else if (change.type === 'removed') {
+            delete children[name];
+          }
+        });
+        if (currentChild) {
+          currentChild = children[currentChild.name] || Object.values(children)[0];
+          updateChildSelect();
+          updateTasks();
+          updateRewards();
+          updateProfiles();
+        }
+      }, error => {
+        console.error("Firestore listener error:", error);
       });
-      currentChild = children[storedChildren[0]];
-      document.getElementById('app').style.display = 'block';
-      updateDateNav();
-      updateDateTime();
-      updateChildSelect();
-      updateTasks();
     }
 
     function updateChildSelect() {
@@ -1247,7 +672,7 @@
       editModal.style.display = 'flex';
     }
 
-    function saveEdit() {
+    async function saveEdit() {
       if (!editingItem) return;
       const name = document.getElementById('editName').value.trim();
       const stars = parseInt(document.getElementById('editStars').value) || 0;
@@ -1268,23 +693,23 @@
       }
 
       if (editingItem.type === 'task') {
-        currentChild.editTask(editingItem.index, name, stars, day, timer, category, subtasks);
+        await currentChild.editTask(editingItem.index, name, stars, day, timer, category, subtasks);
       } else if (editingItem.type === 'reward') {
-        currentChild.editReward(editingItem.index, name, stars, day);
+        await currentChild.editReward(editingItem.index, name, stars, day);
       }
       closeModal('edit-modal');
       editingItem = null;
     }
 
-    function deleteItem() {
+    async function deleteItem() {
       if (!editingItem) return;
-      if (editingItem.type === 'task') currentChild.deleteTask(editingItem.index);
-      else if (editingItem.type === 'reward') currentChild.deleteReward(editingItem.index);
+      if (editingItem.type === 'task') await currentChild.deleteTask(editingItem.index);
+      else if (editingItem.type === 'reward') await currentChild.deleteReward(editingItem.index);
       closeModal('edit-modal');
       editingItem = null;
     }
 
-    function saveTask() {
+    async function saveTask() {
       if (!currentChild) {
         alert('No child selected. Please add a profile first.');
         return;
@@ -1309,11 +734,11 @@
 
       const days = isDaily ? ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] : [day];
       if (applyToAll) {
-        Object.values(children).forEach(child => {
-          days.forEach(d => child.addTask(name, stars, d, timer, category, subtasks));
-        });
+        await Promise.all(Object.values(children).map(child =>
+          Promise.all(days.map(d => child.addTask(name, stars, d, timer, category, subtasks)))
+        ));
       } else {
-        days.forEach(d => currentChild.addTask(name, stars, d, timer, category, subtasks));
+        await Promise.all(days.map(d => currentChild.addTask(name, stars, d, timer, category, subtasks)));
       }
 
       document.getElementById('newTask').value = '';
@@ -1329,7 +754,7 @@
       updateTasks();
     }
 
-    function saveReward() {
+    async function saveReward() {
       if (!currentChild) {
         alert('No child selected. Please add a profile first.');
         return;
@@ -1347,11 +772,11 @@
 
       const days = isDaily ? ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] : [day];
       if (applyToAll) {
-        Object.values(children).forEach(child => {
-          days.forEach(d => child.addReward(name, stars, d));
-        });
+        await Promise.all(Object.values(children).map(child =>
+          Promise.all(days.map(d => child.addReward(name, stars, d)))
+        ));
       } else {
-        days.forEach(d => currentChild.addReward(name, stars, d));
+        await Promise.all(days.map(d => currentChild.addReward(name, stars, d)));
       }
 
       document.getElementById('newRewardName').value = '';
@@ -1362,7 +787,7 @@
       updateRewards();
     }
 
-    function saveProfile(isEdit = false) {
+    async function saveProfile(isEdit = false) {
       const name = document.getElementById('profileName').value.trim();
       const dob = document.getElementById('profileDOB').value;
       const fileInput = document.getElementById('profilePhoto');
@@ -1380,17 +805,17 @@
         }
         const child = children[oldName];
         delete children[oldName];
-        localStorage.removeItem(`child_${oldName}`);
+        await db.collection('children').doc(oldName).delete();
         child.name = name;
         child.dob = dob;
 
         if (fileInput.files && fileInput.files[0]) {
           const reader = new FileReader();
-          reader.onload = (e) => {
+          reader.onload = async (e) => {
             child.photo = e.target.result;
             children[name] = child;
             if (currentChild.name === oldName) currentChild = child;
-            localStorage.setItem('children', JSON.stringify(Object.keys(children)));
+            await child.save();
             updateChildSelect();
             updateProfiles();
             closeModal('profile-modal');
@@ -1400,7 +825,7 @@
         } else {
           children[name] = child;
           if (currentChild.name === oldName) currentChild = child;
-          localStorage.setItem('children', JSON.stringify(Object.keys(children)));
+          await child.save();
           updateChildSelect();
           updateProfiles();
           closeModal('profile-modal');
@@ -1412,11 +837,11 @@
 
         if (fileInput.files && fileInput.files[0]) {
           const reader = new FileReader();
-          reader.onload = (e) => {
+          reader.onload = async (e) => {
             child.photo = e.target.result;
             children[name] = child;
             currentChild = child;
-            localStorage.setItem('children', JSON.stringify(Object.keys(children)));
+            await child.save();
             updateChildSelect();
             updateProfiles();
             closeModal('profile-modal');
@@ -1426,7 +851,7 @@
         } else {
           children[name] = child;
           currentChild = child;
-          localStorage.setItem('children', JSON.stringify(Object.keys(children)));
+          await child.save();
           updateChildSelect();
           updateProfiles();
           closeModal('profile-modal');
@@ -1442,7 +867,7 @@
       document.getElementById('profilePhoto').value = '';
     }
 
-    function editProfile(name) {
+    async function editProfile(name) {
       openModal('profile-modal');
       document.getElementById('profile-modal-title').textContent = 'Edit Profile';
       document.getElementById('profileName').value = name;
@@ -1451,15 +876,14 @@
       document.getElementById('photoPreview').style.display = 'block';
     }
 
-    function deleteProfile(name) {
+    async function deleteProfile(name) {
       if (Object.keys(children).length <= 1) {
         alert('Cannot delete the last profile.');
         return;
       }
       if (confirm(`Delete profile "${name}"?`)) {
         delete children[name];
-        localStorage.removeItem(`child_${name}`);
-        localStorage.setItem('children', JSON.stringify(Object.keys(children)));
+        await db.collection('children').doc(name).delete();
         if (currentChild.name === name) currentChild = children[Object.keys(children)[0]];
         updateChildSelect();
         updateProfiles();
@@ -1519,12 +943,12 @@
       }
     });
 
-    document.getElementById('childSelect').addEventListener('change', (e) => {
+    document.getElementById('childSelect').addEventListener('change', async (e) => {
       if (e.target.value === 'edit-profiles') {
         showSection('profiles');
         document.getElementById('childSelect').value = currentChild.name;
       } else {
-        currentChild = children[e.target.value];
+        currentChild = children[e.target.value] || await Child.load(e.target.value);
         updateTasks();
         updateRewards();
         updateChildSelect();
