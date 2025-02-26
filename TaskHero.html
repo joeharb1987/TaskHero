@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskHero - Task & Reward Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #f0f4f8, #d9e2ec);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #333;
+      overflow-x: hidden;
+    }
+    #app {
+      background: #fff;
+      width: 100%;
+      max-width: 390px;
+      border-radius: 15px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      display: none;
+      margin: 10px;
+    }
+    #welcome-screen {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #welcome-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 350px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    header {
+      background: #3498db;
+      padding: 15px 20px;
+      color: #fff;
+      text-align: center;
+      position: relative;
+    }
+    header .datetime {
+      font-size: 14px;
+      margin-bottom: 10px;
+      color: #000;
+    }
+    header .profile {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+    }
+    header .profile img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      object-fit: cover;
+    }
+    header .stars {
+      font-size: 20px;
+      color: #f1c40f;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    #childSelect {
+      background: #fff;
+      border: 1px solid #fff;
+      border-radius: 8px;
+      padding: 8px 30px 8px 10px;
+      font-size: 0.9em;
+      color: #333;
+      cursor: pointer;
+      appearance: none;
+      background: url('data:image/svg+xml;utf8,<svg fill="%23333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 10px center;
+      background-size: 12px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    #childSelect:hover {
+      background-color: #f5f5f5;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 10px;
+      background: #e0e0e0;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .progress {
+      height: 100%;
+      background: #2ecc71;
+      border-radius: 5px;
+      transition: width 0.3s;
+    }
+    .date-nav {
+      background: #ecf0f1;
+      padding: 12px;
+      display: flex;
+      justify-content: space-around;
+    }
+    .date-nav span {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.3s;
+      white-space: nowrap;
+    }
+    .date-nav span.active {
+      background: #bdc3c7;
+      border-bottom: 2px solid #3498db;
+    }
+    .nav-tabs {
+      background: #ecf0f1;
+      display: flex;
+      justify-content: space-around;
+      padding: 12px 0;
+    }
+    .nav-tabs span {
+      cursor: pointer;
+      padding: 8px 20px;
+      border-radius: 8px;
+      transition: background 0.3s;
+    }
+    .nav-tabs span.active {
+      background: #bdc3c7;
+      border-bottom: 2px solid #3498db;
+    }
+    #tasks, #rewards, #profiles {
+      padding: 20px;
+      display: none;
+    }
+    #tasks.active, #rewards.active, #profiles.active {
+      display: block;
+    }
+    .task, .reward-item, .profile-item {
+      background: #f9f9f9;
+      margin: 12px 0;
+      padding: 15px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: fadeIn 0.5s ease-in;
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+    }
+    .task.dragging, .subtask.dragging {
+      opacity: 0.5;
+      background: #ddd;
+    }
+    .task.completed, .subtask.completed {
+      background: #e0e0e0;
+    }
+    .task span, .subtask span {
+      flex: 1;
+    }
+    .task.completed span, .subtask.completed span {
+      text-decoration: line-through;
+      color: #777;
+    }
+    .task .timer, .subtask .timer {
+      font-size: 14px;
+      color: #555;
+      min-width: 40px;
+      text-align: right;
+    }
+    .task button.start, .subtask button.start {
+      background: #3498db;
+      padding: 5px 10px;
+      border-radius: 5px;
+    }
+    .task button.start:hover, .subtask button.start:hover {
+      background: #2980b9;
+    }
+    .subtasks {
+      margin-top: 10px;
+      padding-left: 20px;
+      width: 100%;
+    }
+    .subtask {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 5px 0;
+    }
+    .subtask-checkbox {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #2ecc71;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .subtask-checkbox:checked {
+      background: #2ecc71;
+    }
+    .subtask-checkbox:checked::after {
+      content: '';
+      display: block;
+      width: 8px;
+      height: 8px;
+      background: #fff;
+      border-radius: 50%;
+      margin: 2px auto;
+    }
+    .subtask.drag-over {
+      border: 2px dashed #3498db;
+    }
+    .reward-item.redeemed {
+      background: #e0e0e0;
+    }
+    .reward-item.redeemed span {
+      text-decoration: line-through;
+      color: #777;
+    }
+    .reward-item button:disabled {
+      background: #95a5a6;
+      cursor: not-allowed;
+    }
+    .profile-item img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .profile-item .info {
+      flex: 1;
+    }
+    .profile-item .actions {
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      background: #2ecc71;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+      font-size: 0.9em;
+    }
+    button:hover {
+      background: #27ae60;
+    }
+    button:disabled {
+      background: #95a5a6;
+      cursor: not-allowed;
+    }
+    button.delete {
+      background: #e74c3c;
+    }
+    button.delete:hover {
+      background: #c0392b;
+    }
+    #modal, #reward-modal, #profile-modal, #edit-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #modal-content, #edit-modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 350px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      max-height: 80vh;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    #reward-modal-content, #profile-modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 350px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    #modal-content h3, #reward-modal-content h3, #profile-modal-content h3, #edit-modal-content h3 {
+      font-size: 1.5em;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    #modal-content label, #reward-modal-content label, #profile-modal-content label, #edit-modal-content label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+      font-size: 0.9em;
+      color: #555;
+    }
+    #modal-content input[type="text"],
+    #modal-content input[type="number"],
+    #modal-content select,
+    #reward-modal-content input[type="text"],
+    #reward-modal-content input[type="number"],
+    #reward-modal-content select,
+    #profile-modal-content input[type="text"],
+    #profile-modal-content input[type="date"],
+    #profile-modal-content input[type="file"],
+    #edit-modal-content input[type="text"],
+    #edit-modal-content input[type="number"],
+    #edit-modal-content select {
+      width: 100%;
+      margin: 5px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #f9f9f9;
+      color: #333;
+      font-size: 0.9em;
+      box-sizing: border-box;
+    }
+    #modal-content select,
+    #reward-modal-content select,
+    #edit-modal-content select {
+      appearance: none;
+      background: url('data:image/svg+xml;utf8,<svg fill="%23333" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 10px center;
+      background-size: 12px;
+      padding-right: 30px;
+    }
+    #modal-content input[type="checkbox"],
+    #reward-modal-content input[type="checkbox"],
+    #edit-modal-content input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #2ecc71;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #modal-content input[type="checkbox"]:checked,
+    #reward-modal-content input[type="checkbox"]:checked,
+    #edit-modal-content input[type="checkbox"]:checked {
+      background: #2ecc71;
+    }
+    #modal-content input[type="checkbox"]:checked::after,
+    #reward-modal-content input[type="checkbox"]:checked::after,
+    #edit-modal-content input[type="checkbox"]:checked::after {
+      content: '✓';
+      color: #fff;
+      font-size: 12px;
+      line-height: 16px;
+      text-align: center;
+      display: block;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    #subtasksContainer, #editSubtasksContainer {
+      margin: 15px 0;
+    }
+    .subtask-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin: 5px 0;
+      width: 100%;
+    }
+    .subtask-item input[type="text"] {
+      width: 200px;
+      height: 40px;
+      padding: 10px;
+      font-size: 1em;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #f9f9f9;
+      box-sizing: border-box;
+    }
+    #editSubtasksContainer .subtask-item input[type="text"] {
+      width: 250px;
+      height: 50px;
+      font-size: 1.1em;
+    }
+    .subtask-item input[type="number"] {
+      width: 60px;
+      height: 40px;
+      padding: 10px;
+      font-size: 1em;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+    .subtask-item button {
+      background: #e74c3c;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background 0.3s;
+      width: 60px;
+      margin-top: 5px;
+    }
+    .subtask-item button:hover {
+      background: #c0392b;
+    }
+    #addSubtaskBtn, #addEditSubtaskBtn {
+      background: #2ecc71;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 1em;
+      cursor: pointer;
+      margin-top: 10px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #addSubtaskBtn:hover, #addEditSubtaskBtn:hover {
+      background: #27ae60;
+    }
+    @media screen and (device-height: 1290px) and (device-width: 2796px) and (-webkit-device-pixel-ratio: 3) {
+      #app {
+        max-width: 390px;
+        margin: 10px;
+      }
+      #modal-content, #edit-modal-content, #reward-modal-content, #profile-modal-content {
+        max-width: 350px;
+        max-height: 70vh;
+      }
+      .subtask-item input[type="text"] {
+        width: 200px;
+      }
+      #editSubtasksContainer .subtask-item input[type="text"] {
+        width: 250px;
+      }
+      .subtask-item input[type="number"] {
+        width: 60px;
+      }
+      .subtask-item button {
+        width: 60px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="datetime" id="current-datetime"></div>
+      <div class="profile">
+        <img id="header-profile-pic" src="https://via.placeholder.com/40" alt="Profile">
+        <select id="childSelect" aria-label="Select Child Profile"></select>
+        <span class="stars"><i class="fas fa-star"></i> <span id="starCount">0</span></span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress" id="starProgress"></div>
+      </div>
+    </header>
+    <div class="date-nav" id="dateNav" role="tablist">
+      <span data-day="MON" role="tab">Mon</span>
+      <span data-day="TUE" role="tab">Tue</span>
+      <span data-day="WED" role="tab">Wed</span>
+      <span data-day="THU" role="tab">Thu</span>
+      <span data-day="FRI" role="tab">Fri</span>
+      <span data-day="SAT" role="tab">Sat</span>
+      <span data-day="SUN" role="tab">Sun</span>
+    </div>
+    <div class="nav-tabs" role="tablist">
+      <span data-section="tasks" class="active" role="tab">Tasks</span>
+      <span data-section="rewards" role="tab">Rewards</span>
+      <span data-section="profiles" role="tab">Profiles</span>
+    </div>
+    <div id="tasks" class="active">
+      <h2>Tasks</h2>
+      <div id="task-list"></div>
+      <button id="add-task-btn" aria-label="Add New Task">Add Task</button>
+    </div>
+    <div id="rewards">
+      <h2>Rewards</h2>
+      <div id="reward-list"></div>
+      <button id="add-reward-btn" aria-label="Add New Reward">Add Reward</button>
+    </div>
+    <div id="profiles">
+      <h2>Profiles</h2>
+      <div id="profile-list"></div>
+      <button id="add-profile-btn" aria-label="Add New Profile">Add Profile</button>
+    </div>
+  </div>
+
+  <div id="welcome-screen">
+    <div id="welcome-content">
+      <h3>Welcome to TaskHero!</h3>
+      <p>Please create your first profile to get started.</p>
+      <button id="create-profile-btn" aria-label="Create First Profile">Create Profile</button>
+    </div>
+  </div>
+
+  <div id="modal">
+    <div id="modal-content">
+      <h3>Add Task</h3>
+      <input type="text" id="newTask" placeholder="Task Name" aria-label="Task Name">
+      <input type="number" id="newStars" placeholder="Stars" min="0" aria-label="Stars">
+      <select id="taskDay" aria-label="Select Day">
+        <option value="MON">Monday</option>
+        <option value="TUE">Tuesday</option>
+        <option value="WED">Wednesday</option>
+        <option value="THU">Thursday</option>
+        <option value="FRI">Friday</option>
+        <option value="SAT">Saturday</option>
+        <option value="SUN">Sunday</option>
+      </select>
+      <label><input type="checkbox" id="taskDaily" aria-label="Repeat Daily"> Repeat Daily</label>
+      <label><input type="checkbox" id="taskTimerCheck" aria-label="Add Timer"> Add Timer</label>
+      <input type="number" id="taskTimer" placeholder="Minutes" min="1" style="display: none;" aria-label="Timer Minutes">
+      <label><input type="text" id="taskCategory" placeholder="Category (e.g., Morning)" aria-label="Task Category"></label>
+      <div id="subtasksContainer">
+        <h4>Subtasks</h4>
+        <div id="subtaskList"></div>
+        <button id="addSubtaskBtn" type="button" aria-label="Add Subtask">Add Subtask</button>
+      </div>
+      <label><input type="checkbox" id="applyToAllTasks" aria-label="Apply to All Profiles"> Apply to All Profiles</label>
+      <div class="modal-buttons">
+        <button id="save-task-btn" aria-label="Save Task">Save</button>
+        <button id="cancel-task-btn" aria-label="Cancel Task">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="reward-modal">
+    <div id="reward-modal-content">
+      <h3>Add Reward</h3>
+      <input type="text" id="newRewardName" placeholder="Reward Name" aria-label="Reward Name">
+      <input type="number" id="newRewardStars" placeholder="Stars Required" min="1" aria-label="Stars Required">
+      <select id="rewardDay" aria-label="Select Day">
+        <option value="MON">Monday</option>
+        <option value="TUE">Tuesday</option>
+        <option value="WED">Wednesday</option>
+        <option value="THU">Thursday</option>
+        <option value="FRI">Friday</option>
+        <option value="SAT">Saturday</option>
+        <option value="SUN">Sunday</option>
+      </select>
+      <label><input type="checkbox" id="rewardDaily" aria-label="Repeat Daily"> Repeat Daily</label>
+      <label><input type="checkbox" id="applyToAllRewards" aria-label="Apply to All Profiles"> Apply to All Profiles</label>
+      <div class="modal-buttons">
+        <button id="save-reward-btn" aria-label="Save Reward">Save</button>
+        <button id="cancel-reward-btn" aria-label="Cancel Reward">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="profile-modal">
+    <div id="profile-modal-content">
+      <h3 id="profile-modal-title">Add Profile</h3>
+      <input type="text" id="profileName" placeholder="Profile Name" aria-label="Profile Name">
+      <input type="date" id="profileDOB" placeholder="Date of Birth" aria-label="Date of Birth">
+      <label>Profile Photo:
+        <input type="file" id="profilePhoto" accept="image/*" aria-label="Profile Photo">
+      </label>
+      <img id="photoPreview" src="https://via.placeholder.com/40" alt="Preview" style="display: none; width: 40px; height: 40px; border-radius: 50%; margin: 10px 0;">
+      <div class="modal-buttons">
+        <button id="save-profile-btn" aria-label="Save Profile">Save</button>
+        <button id="cancel-profile-btn" aria-label="Cancel Profile">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-modal">
+    <div id="edit-modal-content">
+      <h3 id="edit-modal-title">Edit Item</h3>
+      <input type="text" id="editName" placeholder="Name" aria-label="Item Name">
+      <input type="number" id="editStars" placeholder="Stars" min="0" style="display: none;" aria-label="Stars">
+      <select id="editDay" aria-label="Select Day">
+        <option value="MON">Monday</option>
+        <option value="TUE">Tuesday</option>
+        <option value="WED">Wednesday</option>
+        <option value="THU">Thursday</option>
+        <option value="FRI">Friday</option>
+        <option value="SAT">Saturday</option>
+        <option value="SUN">Sunday</option>
+      </select>
+      <label><input type="checkbox" id="editDaily" aria-label="Repeat Daily"> Repeat Daily</label>
+      <label><input type="checkbox" id="editTimerCheck" aria-label="Add Timer"> Add Timer</label>
+      <input type="number" id="editTimer" placeholder="Minutes" min="1" style="display: none;" aria-label="Timer Minutes">
+      <label><input type="text" id="editCategory" placeholder="Category (e.g., Morning)" aria-label="Task Category"></label>
+      <div id="editSubtasksContainer">
+        <h4>Subtasks</h4>
+        <div id="editSubtaskList"></div>
+        <button id="addEditSubtaskBtn" type="button" aria-label="Add Subtask">Add Subtask</button>
+      </div>
+      <div class="modal-buttons">
+        <button id="save-edit-btn" aria-label="Save Changes">Save</button>
+        <button id="delete-btn" aria-label="Delete Item">Delete</button>
+        <button id="cancel-edit-btn" aria-label="Cancel Edit">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Firebase with your config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDOx1nWxDLs3nWCXLxc_m67D-HsvvUjeIs",
+      authDomain: "taskhero-2d52d.firebaseapp.com",
+      projectId: "taskhero-2d52d",
+      storageBucket: "taskhero-2d52d.firebasestorage.app",
+      messagingSenderId: "526189020456",
+      appId: "1:526189020456:web:cc88c782be3c84467cbc1d",
+      measurementId: "G-JEZMT4PKPL"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    class Child {
+      constructor(name, tasks = [], stars = 0, rewards = [], lastReset = null, photo = null, dob = null) {
+        this.name = name;
+        this.tasks = tasks.map(task => ({
+          ...task,
+          timerRemaining: task.timer ? task.timer * 60 : null,
+          timerInterval: null,
+          category: task.category || '',
+          subtasks: (task.subtasks || []).map(subtask => ({
+            name: subtask.name,
+            completed: subtask.completed || false,
+            timer: subtask.timer || null,
+            timerRemaining: subtask.timer ? subtask.timer * 60 : null,
+            timerInterval: null
+          }))
+        }));
+        this.stars = Number(stars) || 0;
+        this.rewards = rewards;
+        this.lastReset = lastReset || Date.now();
+        this.photo = photo || 'https://via.placeholder.com/40';
+        this.dob = dob;
+      }
+
+      async addTask(name, stars, day, timer = null, category = '', subtasks = []) {
+        this.tasks.push({
+          name,
+          stars: stars || 0,
+          day,
+          completed: false,
+          timer,
+          timerRemaining: timer ? timer * 60 : null,
+          timerInterval: null,
+          category,
+          subtasks: subtasks.map(subtask => ({
+            name: subtask.name,
+            completed: false,
+            timer: subtask.timer || null,
+            timerRemaining: subtask.timer ? subtask.timer * 60 : null,
+            timerInterval: null
+          }))
+        });
+        await this.save();
+      }
+
+      async editTask(index, name, stars, day, timer, category, subtasks) {
+        const task = this.tasks[index];
+        if (task) {
+          task.name = name;
+          task.stars = stars || 0;
+          task.day = day;
+          task.timer = timer;
+          task.category = category || '';
+          task.subtasks = subtasks.map(subtask => ({
+            name: subtask.name,
+            completed: subtask.completed || false,
+            timer: subtask.timer || null,
+            timerRemaining: subtask.timer ? subtask.timer * 60 : null,
+            timerInterval: null
+          }));
+          if (timer) {
+            task.timerRemaining = timer * 60;
+            if (task.timerInterval) clearInterval(task.timerInterval);
+            task.timerInterval = null;
+          } else {
+            task.timerRemaining = null;
+            if (task.timerInterval) clearInterval(task.timerInterval);
+            task.timerInterval = null;
+          }
+          await this.save();
+          updateTasks();
+        }
+      }
+
+      async deleteTask(taskIndex) {
+        const task = this.tasks[taskIndex];
+        if (task && task.completed) this.stars -= task.stars;
+        this.tasks.splice(taskIndex, 1);
+        await this.save();
+        updateTasks();
+      }
+
+      async moveSubtask(taskIndex, fromIndex, toIndex) {
+        const task = this.tasks[taskIndex];
+        if (task && task.subtasks && fromIndex >= 0 && toIndex >= 0 && fromIndex < task.subtasks.length && toIndex < task.subtasks.length) {
+          const [subtask] = task.subtasks.splice(fromIndex, 1);
+          task.subtasks.splice(toIndex, 0, subtask);
+          await this.save();
+          updateTasks();
+        }
+      }
+
+      async addReward(name, stars, day) {
+        this.rewards.push({ name, stars, day, claimed: false });
+        await this.save();
+      }
+
+      async editReward(index, name, stars, day) {
+        const reward = this.rewards[index];
+        if (reward) {
+          reward.name = name;
+          reward.stars = stars;
+          reward.day = day;
+          await this.save();
+          updateRewards();
+        }
+      }
+
+      async deleteReward(index) {
+        const reward = this.rewards[index];
+        if (reward && reward.claimed) this.stars += reward.stars;
+        this.rewards.splice(index, 1);
+        await this.save();
+        updateRewards();
+      }
+
+      toggleSubtask(taskIndex, subtaskIndex) {
+        const task = this.tasks[taskIndex];
+        if (task && task.subtasks[subtaskIndex] && !task.subtasks[subtaskIndex].timer) {
+          task.subtasks[subtaskIndex].completed = !task.subtasks[subtaskIndex].completed;
+          this.checkTaskCompletion(taskIndex);
+        }
+      }
+
+      startSubtaskTimer(taskIndex, subtaskIndex) {
+        const task = this.tasks[taskIndex];
+        const subtask = task.subtasks[subtaskIndex];
+        if (subtask && subtask.timer && !subtask.completed && subtask.timerRemaining > 0 && !subtask.timerInterval) {
+          subtask.timerInterval = setInterval(async () => {
+            subtask.timerRemaining--;
+            const timerSpan = document.querySelector(`.subtask[data-task="${taskIndex}"][data-subtask="${subtaskIndex}"] .timer`);
+            if (timerSpan) timerSpan.textContent = formatTime(subtask.timerRemaining);
+            if (subtask.timerRemaining <= 0) {
+              clearInterval(subtask.timerInterval);
+              subtask.timerInterval = null;
+              subtask.completed = true;
+              this.checkTaskCompletion(taskIndex);
+              await this.save();
+              updateTasks();
+            }
+          }, 1000);
+          this.save();
+        }
+      }
+
+      async checkTaskCompletion(taskIndex) {
+        const task = this.tasks[taskIndex];
+        if (task.subtasks.length > 0) {
+          const allSubtasksCompleted = task.subtasks.every(subtask => subtask.completed);
+          if (allSubtasksCompleted && !task.completed) {
+            task.completed = true;
+            this.stars += task.stars;
+          } else if (!allSubtasksCompleted && task.completed) {
+            task.completed = false;
+            this.stars = Math.max(0, this.stars - task.stars);
+          }
+        } else if (!task.timer) {
+          task.completed = !task.completed;
+          if (task.completed) this.stars += task.stars;
+          else this.stars = Math.max(0, this.stars - task.stars);
+        }
+        await this.save();
+        updateTasks();
+        updateRewards();
+        updateChildSelect();
+      }
+
+      startTaskTimer(taskIndex) {
+        const task = this.tasks[taskIndex];
+        if (task && task.timer && !task.completed && task.timerRemaining > 0 && !task.timerInterval) {
+          task.timerInterval = setInterval(async () => {
+            task.timerRemaining--;
+            const timerSpan = document.querySelector(`.task[data-index="${taskIndex}"] .timer`);
+            if (timerSpan) timerSpan.textContent = formatTime(task.timerRemaining);
+            if (task.timerRemaining <= 0) {
+              clearInterval(task.timerInterval);
+              task.timerInterval = null;
+              task.completed = true;
+              this.stars += task.stars;
+              await this.save();
+              updateTasks();
+            }
+          }, 1000);
+          this.save();
+        }
+      }
+
+      async claimReward(index) {
+        const reward = this.rewards[index];
+        if (reward && !reward.claimed && this.stars >= reward.stars) {
+          reward.claimed = true;
+          this.stars -= reward.stars;
+          await this.save();
+          updateRewards();
+          updateChildSelect();
+        }
+      }
+
+      async resetRewards() {
+        const now = Date.now();
+        const today = new Date();
+        const lastResetDate = new Date(this.lastReset);
+        if (today.getDate() !== lastResetDate.getDate() || 
+            today.getMonth() !== lastResetDate.getMonth() || 
+            today.getFullYear() !== lastResetDate.getFullYear()) {
+          this.rewards = this.rewards.map(reward => ({ ...reward, claimed: false }));
+          this.lastReset = now;
+          await this.save();
+        }
+      }
+
+      async save() {
+        const data = {
+          tasks: this.tasks.map(task => ({
+            ...task,
+            timerInterval: null,
+            subtasks: task.subtasks.map(subtask => ({
+              ...subtask,
+              timerInterval: null
+            }))
+          })),
+          stars: this.stars,
+          rewards: this.rewards,
+          lastReset: this.lastReset,
+          photo: this.photo,
+          dob: this.dob
+        };
+        await db.collection('children').doc(this.name).set(data);
+      }
+
+      static async load(name) {
+        const doc = await db.collection('children').doc(name).get();
+        const data = doc.exists ? doc.data() : {
+          tasks: [],
+          stars: 0,
+          rewards: [],
+          lastReset: null,
+          photo: null,
+          dob: null
+        };
+        return new Child(name, data.tasks, data.stars, data.rewards, data.lastReset, data.photo, data.dob);
+      }
+    }
+
+    let children = {};
+    let currentChild = null;
+    let currentDate = getCurrentDay();
+    let editingItem = null;
+
+    function getCurrentDay() {
+      const now = new Date();
+      const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+      return days[now.getDay()];
+    }
+
+    function updateDateTime() {
+      const now = new Date();
+      const dayName = now.toLocaleDateString('en-US', { weekday: 'short' });
+      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      document.getElementById('current-datetime').textContent = `${dayName}, ${dateStr}`;
+    }
+
+    function updateDateNav() {
+      const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+      document.querySelectorAll('.date-nav span').forEach((span, index) => {
+        span.textContent = days[index].slice(0, 3);
+        span.classList.toggle('active', days[index] === currentDate);
+      });
+    }
+
+    async function loadInitialData() {
+      try {
+        const snapshot = await db.collection('children').get();
+        if (snapshot.empty) {
+          document.getElementById('welcome-screen').style.display = 'flex';
+        } else {
+          snapshot.forEach(doc => {
+            const name = doc.id;
+            const data = doc.data();
+            children[name] = new Child(name, data.tasks, data.stars, data.rewards, data.lastReset, data.photo, data.dob);
+            children[name].resetRewards();
+          });
+          currentChild = children[Object.keys(children)[0]];
+          document.getElementById('app').style.display = 'block';
+          updateDateNav();
+          updateDateTime();
+          updateChildSelect();
+          updateTasks();
+        }
+
+        // Real-time listener for syncing
+        db.collection('children').onSnapshot(snapshot => {
+          snapshot.docChanges().forEach(change => {
+            const name = change.doc.id;
+            const data = change.doc.data();
+            if (change.type === 'added' || change.type === 'modified') {
+              children[name] = new Child(name, data.tasks, data.stars, data.rewards, data.lastReset, data.photo, data.dob);
+            } else if (change.type === 'removed') {
+              delete children[name];
+            }
+          });
+          if (currentChild) {
+            currentChild = children[currentChild.name] || Object.values(children)[0];
+            updateChildSelect();
+            updateTasks();
+            updateRewards();
+            updateProfiles();
+          }
+        }, error => {
+          console.error("Firestore listener error:", error);
+        });
+      } catch (error) {
+        console.error("Error loading initial data:", error);
+        alert("Failed to connect to Firebase. Please check your internet connection or Firebase configuration.");
+      }
+    }
+
+    function updateChildSelect() {
+      const select = document.getElementById('childSelect');
+      select.innerHTML = '';
+      Object.keys(children).forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+      });
+      const separator = document.createElement('option');
+      separator.disabled = true;
+      separator.textContent = '──────────';
+      select.appendChild(separator);
+      const editOption = document.createElement('option');
+      editOption.value = 'edit-profiles';
+      editOption.textContent = 'Edit/Add Profiles';
+      select.appendChild(editOption);
+
+      if (currentChild) {
+        select.value = currentChild.name;
+        document.getElementById('header-profile-pic').src = currentChild.photo;
+        document.getElementById('starCount').textContent = currentChild.stars;
+        updateProgressBar();
+      }
+    }
+
+    function updateProgressBar() {
+      const totalStars = currentChild ? currentChild.stars : 0;
+      const maxStars = 100;
+      document.getElementById('starProgress').style.width = `${(totalStars / maxStars) * 100}%`;
+    }
+
+    function setDate(day) {
+      currentDate = day;
+      updateDateNav();
+      updateTasks();
+      updateRewards();
+    }
+
+    function showSection(section) {
+      document.querySelectorAll('#tasks, #rewards, #profiles').forEach(el => el.classList.remove('active'));
+      document.getElementById(section).classList.add('active');
+      document.querySelectorAll('.nav-tabs span').forEach(span => span.classList.remove('active'));
+      document.querySelector(`.nav-tabs span[data-section="${section}"]`).classList.add('active');
+      if (section === 'tasks') updateTasks();
+      if (section === 'rewards') updateRewards();
+      if (section === 'profiles') updateProfiles();
+    }
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    function getTaskIcon(taskName) {
+      const lowerName = taskName.toLowerCase();
+      if (lowerName.includes('brush') || lowerName.includes('teeth')) return 'fas fa-tooth';
+      if (lowerName.includes('bed')) return 'fas fa-bed';
+      if (lowerName.includes('clothes')) return 'fas fa-tshirt';
+      if (lowerName.includes('breakfast')) return 'fas fa-utensils';
+      return 'fas fa-tasks';
+    }
+
+    function updateTasks() {
+      if (!currentChild) return;
+      const taskList = document.getElementById('task-list');
+      taskList.innerHTML = '';
+      const filteredTasks = currentChild.tasks
+        .map((task, index) => ({ task, originalIndex: index }))
+        .filter(({ task }) => task.day === currentDate);
+
+      filteredTasks.forEach(({ task, originalIndex }) => {
+        const taskDiv = document.createElement('div');
+        taskDiv.className = `task ${task.completed ? 'completed' : ''}`;
+        taskDiv.draggable = true;
+        taskDiv.dataset.index = originalIndex;
+        const icon = getTaskIcon(task.name);
+        const categoryTag = task.category ? `<small class="category">[${task.category}]</small>` : '';
+        const starsDisplay = task.stars === 0 ? '0 ⭐' : `(${task.stars} ⭐)`;
+
+        let subtaskHTML = '';
+        if (task.subtasks.length > 0) {
+          subtaskHTML = '<div class="subtasks">';
+          task.subtasks.forEach((subtask, subIndex) => {
+            const timerDisplay = subtask.timerRemaining !== null ? `<span class="timer">${formatTime(subtask.timerRemaining)}</span>` : '';
+            subtaskHTML += `
+              <div class="subtask ${subtask.completed ? 'completed' : ''}" data-task="${originalIndex}" data-subtask="${subIndex}" draggable="true">
+                <input type="checkbox" class="subtask-checkbox" data-task="${originalIndex}" data-subtask="${subIndex}" ${subtask.completed ? 'checked' : ''}>
+                <span>${subtask.name}</span>
+                ${subtask.timer ? `<button class="start" data-task="${originalIndex}" data-subtask="${subIndex}" ${subtask.completed || subtask.timerRemaining === null ? 'disabled' : ''}>Start</button>` : ''} ${timerDisplay}
+              </div>`;
+          });
+          subtaskHTML += '</div>';
+        }
+
+        taskDiv.innerHTML = `
+          <i class="task-icon ${icon}"></i>
+          <span>${task.name} ${categoryTag} ${starsDisplay}</span>
+          ${task.timer ? `<button class="start" data-index="${originalIndex}" ${task.completed || task.timerRemaining === null ? 'disabled' : ''}>Start</button>` : ''}${task.timer && task.timerRemaining !== null ? `<span class="timer">${formatTime(task.timerRemaining)}</span>` : ''}
+          ${subtaskHTML}
+        `;
+
+        taskDiv.addEventListener('click', (e) => {
+          if (e.target.classList.contains('subtask-checkbox') || e.target.classList.contains('start')) return;
+          openEditModal('task', originalIndex);
+        });
+        taskList.appendChild(taskDiv);
+      });
+
+      const tasks = document.querySelectorAll('.task');
+      tasks.forEach(task => {
+        task.addEventListener('dragstart', dragStart);
+        task.addEventListener('dragend', dragEnd);
+        task.addEventListener('dragover', dragOver);
+        task.addEventListener('dragenter', dragEnter);
+        task.addEventListener('dragleave', dragLeave);
+        task.addEventListener('drop', drop);
+      });
+
+      let draggedSubtask = null;
+      const subtasks = document.querySelectorAll('.subtask');
+      subtasks.forEach(subtask => {
+        subtask.addEventListener('dragstart', (e) => {
+          draggedSubtask = e.target;
+          e.target.classList.add('dragging');
+        });
+        subtask.addEventListener('dragend', (e) => {
+          e.target.classList.remove('dragging');
+          draggedSubtask = null;
+        });
+        subtask.addEventListener('dragover', (e) => e.preventDefault());
+        subtask.addEventListener('dragenter', (e) => {
+          e.preventDefault();
+          if (e.target.classList.contains('subtask') && e.target !== draggedSubtask) {
+            e.target.classList.add('drag-over');
+          }
+        });
+        subtask.addEventListener('dragleave', (e) => {
+          if (e.target.classList.contains('subtask')) {
+            e.target.classList.remove('drag-over');
+          }
+        });
+        subtask.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (draggedSubtask && e.target.classList.contains('subtask')) {
+            const taskIndex = parseInt(draggedSubtask.dataset.task);
+            const fromIndex = parseInt(draggedSubtask.dataset.subtask);
+            const toIndex = parseInt(e.target.dataset.subtask);
+            currentChild.moveSubtask(taskIndex, fromIndex, toIndex);
+          }
+          document.querySelectorAll('.subtask').forEach(st => st.classList.remove('drag-over'));
+        });
+      });
+
+      document.querySelectorAll('.task .start, .subtask .start').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const taskIndex = parseInt(e.target.dataset.index);
+          if (!isNaN(taskIndex)) currentChild.startTaskTimer(taskIndex);
+          const subTaskIndex = parseInt(e.target.dataset.subtask);
+          if (!isNaN(subTaskIndex)) currentChild.startSubtaskTimer(parseInt(e.target.dataset.task), subTaskIndex);
+        });
+      });
+
+      document.querySelectorAll('.subtask-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+          const taskIndex = parseInt(e.target.dataset.task);
+          const subtaskIndex = parseInt(e.target.dataset.subtask);
+          currentChild.toggleSubtask(taskIndex, subtaskIndex);
+        });
+      });
+    }
+
+    function updateRewards() {
+      if (!currentChild) return;
+      currentChild.resetRewards();
+      const rewardList = document.getElementById('reward-list');
+      rewardList.innerHTML = '';
+      currentChild.rewards.filter(reward => reward.day === currentDate).forEach((reward, index) => {
+        const rewardDiv = document.createElement('div');
+        rewardDiv.className = `reward-item ${reward.claimed ? 'redeemed' : ''}`;
+        rewardDiv.innerHTML = `
+          <span>${reward.name} (${reward.stars} ⭐)</span>
+          <button ${reward.claimed ? 'disabled' : ''}>${reward.claimed ? 'Redeemed' : 'Claim'}</button>
+        `;
+        rewardDiv.addEventListener('click', (e) => {
+          if (e.target.tagName === 'BUTTON') return;
+          openEditModal('reward', index);
+        });
+        rewardDiv.querySelector('button').addEventListener('click', () => currentChild.claimReward(index));
+        rewardList.appendChild(rewardDiv);
+      });
+      document.getElementById('starCount').textContent = currentChild.stars;
+      updateProgressBar();
+    }
+
+    function updateProfiles() {
+      const profileList = document.getElementById('profile-list');
+      profileList.innerHTML = '';
+      Object.keys(children).forEach(name => {
+        const profileDiv = document.createElement('div');
+        profileDiv.className = 'profile-item';
+        const dob = children[name].dob ? new Date(children[name].dob).toLocaleDateString() : 'Not set';
+        profileDiv.innerHTML = `
+          <img src="${children[name].photo}" alt="${name}">
+          <div class="info">
+            <span>${name}</span>
+            <small>DOB: ${dob}</small>
+          </div>
+          <div class="actions">
+            <button class="edit" data-name="${name}" aria-label="Edit Profile">Edit</button>
+            <button class="delete" data-name="${name}" aria-label="Delete Profile">Delete</button>
+          </div>
+        `;
+        profileDiv.querySelector('.edit').addEventListener('click', () => editProfile(name));
+        profileDiv.querySelector('.delete').addEventListener('click', () => deleteProfile(name));
+        profileList.appendChild(profileDiv);
+      });
+    }
+
+    let draggedTask = null;
+
+    function dragStart(e) {
+      draggedTask = e.target;
+      e.target.classList.add('dragging');
+    }
+
+    function dragEnd(e) {
+      e.target.classList.remove('dragging');
+      draggedTask = null;
+    }
+
+    function dragOver(e) {
+      e.preventDefault();
+    }
+
+    function dragEnter(e) {
+      e.preventDefault();
+      if (e.target.classList.contains('task') && e.target !== draggedTask) {
+        e.target.classList.add('drag-over');
+      }
+    }
+
+    function dragLeave(e) {
+      if (e.target.classList.contains('task')) {
+        e.target.classList.remove('drag-over');
+      }
+    }
+
+    function drop(e) {
+      e.preventDefault();
+      if (draggedTask && e.target.classList.contains('task')) {
+        const fromIndex = parseInt(draggedTask.dataset.index);
+        const toIndex = parseInt(e.target.dataset.index);
+        const temp = currentChild.tasks[fromIndex];
+        currentChild.tasks[fromIndex] = currentChild.tasks[toIndex];
+        currentChild.tasks[toIndex] = temp;
+        currentChild.save();
+        updateTasks();
+      }
+      document.querySelectorAll('.task').forEach(task => task.classList.remove('drag-over'));
+    }
+
+    function openModal(modalId) {
+      document.getElementById(modalId).style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+      document.getElementById('photoPreview').style.display = 'none';
+      document.getElementById('taskTimer').style.display = 'none';
+      document.getElementById('taskTimerCheck').checked = false;
+      document.getElementById('editTimer').style.display = 'none';
+      document.getElementById('editTimerCheck').checked = false;
+    }
+
+    function createSubtaskInput(name = '', timer = null) {
+      const div = document.createElement('div');
+      div.className = 'subtask-item';
+      div.innerHTML = `
+        <input type="text" class="subtask-name" placeholder="Subtask Name" value="${name}" aria-label="Subtask Name">
+        <input type="number" class="subtask-timer" placeholder="Min" min="1" value="${timer || ''}" aria-label="Subtask Timer">
+        <button class="delete-subtask" aria-label="Delete Subtask">X</button>
+      `;
+      div.querySelector('.delete-subtask').addEventListener('click', () => div.remove());
+      return div;
+    }
+
+    function openEditModal(type, index) {
+      editingItem = { type, index };
+      const editModal = document.getElementById('edit-modal');
+      const editName = document.getElementById('editName');
+      const editStars = document.getElementById('editStars');
+      const editDay = document.getElementById('editDay');
+      const editDaily = document.getElementById('editDaily');
+      const editTimerCheck = document.getElementById('editTimerCheck');
+      const editTimer = document.getElementById('editTimer');
+      const editCategory = document.getElementById('editCategory');
+      const editSubtaskList = document.getElementById('editSubtaskList');
+
+      if (type === 'task') {
+        const task = currentChild.tasks[index];
+        document.getElementById('edit-modal-title').textContent = 'Edit Task';
+        editName.value = task.name;
+        editStars.value = task.stars;
+        editStars.style.display = 'block';
+        editDay.value = task.day;
+        editDaily.checked = false;
+        editTimerCheck.checked = !!task.timer;
+        editTimer.value = task.timer || '';
+        editTimer.style.display = task.timer ? 'block' : 'none';
+        editCategory.value = task.category;
+        editSubtaskList.innerHTML = '';
+        task.subtasks.forEach(subtask => {
+          editSubtaskList.appendChild(createSubtaskInput(subtask.name, subtask.timer));
+        });
+      } else if (type === 'reward') {
+        const reward = currentChild.rewards[index];
+        document.getElementById('edit-modal-title').textContent = 'Edit Reward';
+        editName.value = reward.name;
+        editStars.value = reward.stars;
+        editStars.style.display = 'block';
+        editDay.value = reward.day;
+        editDaily.checked = false;
+        editTimerCheck.style.display = 'none';
+        editTimer.style.display = 'none';
+        editCategory.style.display = 'none';
+        editSubtaskList.parentElement.style.display = 'none';
+      }
+      editModal.style.display = 'flex';
+    }
+
+    async function saveEdit() {
+      if (!editingItem) return;
+      const name = document.getElementById('editName').value.trim();
+      const stars = parseInt(document.getElementById('editStars').value) || 0;
+      const day = document.getElementById('editDay').value;
+      const isDaily = document.getElementById('editDaily').checked;
+      const useTimer = document.getElementById('editTimerCheck').checked;
+      const timer = useTimer ? parseInt(document.getElementById('editTimer').value) : null;
+      const category = document.getElementById('editCategory').value.trim();
+      const subtasks = Array.from(document.querySelectorAll('#editSubtaskList .subtask-item')).map(item => ({
+        name: item.querySelector('.subtask-name').value.trim(),
+        timer: item.querySelector('.subtask-timer').value ? parseInt(item.querySelector('.subtask-timer').value) : null,
+        completed: false
+      })).filter(subtask => subtask.name);
+
+      if (!name) {
+        alert('Please enter a valid name.');
+        return;
+      }
+
+      if (editingItem.type === 'task') {
+        await currentChild.editTask(editingItem.index, name, stars, day, timer, category, subtasks);
+      } else if (editingItem.type === 'reward') {
+        await currentChild.editReward(editingItem.index, name, stars, day);
+      }
+      closeModal('edit-modal');
+      editingItem = null;
+    }
+
+    async function deleteItem() {
+      if (!editingItem) return;
+      if (editingItem.type === 'task') await currentChild.deleteTask(editingItem.index);
+      else if (editingItem.type === 'reward') await currentChild.deleteReward(editingItem.index);
+      closeModal('edit-modal');
+      editingItem = null;
+    }
+
+    async function saveTask() {
+      if (!currentChild) {
+        alert('No child selected. Please add a profile first.');
+        return;
+      }
+      const name = document.getElementById('newTask').value.trim();
+      const stars = parseInt(document.getElementById('newStars').value) || 0;
+      const day = document.getElementById('taskDay').value;
+      const isDaily = document.getElementById('taskDaily').checked;
+      const useTimer = document.getElementById('taskTimerCheck').checked;
+      const timer = useTimer ? parseInt(document.getElementById('taskTimer').value) : null;
+      const category = document.getElementById('taskCategory').value.trim();
+      const applyToAll = document.getElementById('applyToAllTasks').checked;
+      const subtasks = Array.from(document.querySelectorAll('#subtaskList .subtask-item')).map(item => ({
+        name: item.querySelector('.subtask-name').value.trim(),
+        timer: item.querySelector('.subtask-timer').value ? parseInt(item.querySelector('.subtask-timer').value) : null
+      })).filter(subtask => subtask.name);
+
+      if (!name) {
+        alert('Please enter a valid task name.');
+        return;
+      }
+
+      const days = isDaily ? ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] : [day];
+      if (applyToAll) {
+        await Promise.all(Object.values(children).map(child =>
+          Promise.all(days.map(d => child.addTask(name, stars, d, timer, category, subtasks)))
+        ));
+      } else {
+        await Promise.all(days.map(d => currentChild.addTask(name, stars, d, timer, category, subtasks)));
+      }
+
+      document.getElementById('newTask').value = '';
+      document.getElementById('newStars').value = '';
+      document.getElementById('taskDaily').checked = false;
+      document.getElementById('taskTimerCheck').checked = false;
+      document.getElementById('taskTimer').value = '';
+      document.getElementById('taskCategory').value = '';
+      document.getElementById('applyToAllTasks').checked = false;
+      document.getElementById('subtaskList').innerHTML = '';
+      document.getElementById('subtaskList').appendChild(createSubtaskInput());
+      closeModal('modal');
+      updateTasks();
+    }
+
+    async function saveReward() {
+      if (!currentChild) {
+        alert('No child selected. Please add a profile first.');
+        return;
+      }
+      const name = document.getElementById('newRewardName').value.trim();
+      const stars = parseInt(document.getElementById('newRewardStars').value);
+      const day = document.getElementById('rewardDay').value;
+      const isDaily = document.getElementById('rewardDaily').checked;
+      const applyToAll = document.getElementById('applyToAllRewards').checked;
+
+      if (!name || isNaN(stars) || stars <= 0) {
+        alert('Please enter a valid reward name and stars.');
+        return;
+      }
+
+      const days = isDaily ? ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] : [day];
+      if (applyToAll) {
+        await Promise.all(Object.values(children).map(child =>
+          Promise.all(days.map(d => child.addReward(name, stars, d)))
+        ));
+      } else {
+        await Promise.all(days.map(d => currentChild.addReward(name, stars, d)));
+      }
+
+      document.getElementById('newRewardName').value = '';
+      document.getElementById('newRewardStars').value = '';
+      document.getElementById('rewardDaily').checked = false;
+      document.getElementById('applyToAllRewards').checked = false;
+      closeModal('reward-modal');
+      updateRewards();
+    }
+
+    async function saveProfile(isEdit = false) {
+      const name = document.getElementById('profileName').value.trim();
+      const dob = document.getElementById('profileDOB').value;
+      const fileInput = document.getElementById('profilePhoto');
+
+      if (!name) {
+        alert('Profile name cannot be empty.');
+        return;
+      }
+
+      if (isEdit) {
+        const oldName = document.getElementById('childSelect').value;
+        if (oldName !== name && children[name]) {
+          alert('Profile name must be unique.');
+          return;
+        }
+        const child = children[oldName];
+        delete children[oldName];
+        await db.collection('children').doc(oldName).delete();
+        child.name = name;
+        child.dob = dob;
+
+        if (fileInput.files && fileInput.files[0]) {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            child.photo = e.target.result;
+            children[name] = child;
+            if (currentChild.name === oldName) currentChild = child;
+            await child.save();
+            updateChildSelect();
+            updateProfiles();
+            closeModal('profile-modal');
+            document.getElementById('app').style.display = 'block';
+          };
+          reader.readAsDataURL(fileInput.files[0]);
+        } else {
+          children[name] = child;
+          if (currentChild.name === oldName) currentChild = child;
+          await child.save();
+          updateChildSelect();
+          updateProfiles();
+          closeModal('profile-modal');
+          document.getElementById('app').style.display = 'block';
+        }
+      } else if (!children[name]) {
+        const child = new Child(name);
+        child.dob = dob;
+
+        if (fileInput.files && fileInput.files[0]) {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            child.photo = e.target.result;
+            children[name] = child;
+            currentChild = child;
+            await child.save();
+            updateChildSelect();
+            updateProfiles();
+            closeModal('profile-modal');
+            document.getElementById('app').style.display = 'block';
+          };
+          reader.readAsDataURL(fileInput.files[0]);
+        } else {
+          children[name] = child;
+          currentChild = child;
+          await child.save();
+          updateChildSelect();
+          updateProfiles();
+          closeModal('profile-modal');
+          document.getElementById('app').style.display = 'block';
+        }
+      } else {
+        alert('Profile name must be unique.');
+        return;
+      }
+
+      document.getElementById('profileName').value = '';
+      document.getElementById('profileDOB').value = '';
+      document.getElementById('profilePhoto').value = '';
+    }
+
+    async function editProfile(name) {
+      openModal('profile-modal');
+      document.getElementById('profile-modal-title').textContent = 'Edit Profile';
+      document.getElementById('profileName').value = name;
+      document.getElementById('profileDOB').value = children[name].dob || '';
+      document.getElementById('photoPreview').src = children[name].photo;
+      document.getElementById('photoPreview').style.display = 'block';
+    }
+
+    async function deleteProfile(name) {
+      if (Object.keys(children).length <= 1) {
+        alert('Cannot delete the last profile.');
+        return;
+      }
+      if (confirm(`Delete profile "${name}"?`)) {
+        delete children[name];
+        await db.collection('children').doc(name).delete();
+        if (currentChild.name === name) currentChild = children[Object.keys(children)[0]];
+        updateChildSelect();
+        updateProfiles();
+        updateTasks();
+        updateRewards();
+      }
+    }
+
+    document.querySelectorAll('.date-nav span').forEach(span => {
+      span.addEventListener('click', () => setDate(span.dataset.day));
+    });
+
+    document.querySelectorAll('.nav-tabs span').forEach(span => {
+      span.addEventListener('click', () => showSection(span.dataset.section));
+    });
+
+    document.getElementById('add-task-btn').addEventListener('click', () => {
+      openModal('modal');
+      const subtaskList = document.getElementById('subtaskList');
+      subtaskList.innerHTML = '';
+      subtaskList.appendChild(createSubtaskInput());
+    });
+
+    document.getElementById('add-reward-btn').addEventListener('click', () => openModal('reward-modal'));
+    document.getElementById('add-profile-btn').addEventListener('click', () => {
+      openModal('profile-modal');
+      document.getElementById('profile-modal-title').textContent = 'Add Profile';
+      document.getElementById('profileName').value = '';
+      document.getElementById('profileDOB').value = '';
+      document.getElementById('profilePhoto').value = '';
+      document.getElementById('photoPreview').style.display = 'none';
+    });
+
+    document.getElementById('save-task-btn').addEventListener('click', saveTask);
+    document.getElementById('cancel-task-btn').addEventListener('click', () => closeModal('modal'));
+    document.getElementById('save-reward-btn').addEventListener('click', saveReward);
+    document.getElementById('cancel-reward-btn').addEventListener('click', () => closeModal('reward-modal'));
+    document.getElementById('save-profile-btn').addEventListener('click', () => saveProfile(document.getElementById('profile-modal-title').textContent === 'Edit Profile'));
+    document.getElementById('cancel-profile-btn').addEventListener('click', () => closeModal('profile-modal'));
+    document.getElementById('create-profile-btn').addEventListener('click', () => {
+      openModal('profile-modal');
+      document.getElementById('profile-modal-title').textContent = 'Add Profile';
+    });
+
+    document.getElementById('save-edit-btn').addEventListener('click', saveEdit);
+    document.getElementById('delete-btn').addEventListener('click', deleteItem);
+    document.getElementById('cancel-edit-btn').addEventListener('click', () => closeModal('edit-modal'));
+
+    document.getElementById('profilePhoto').addEventListener('change', (e) => {
+      if (e.target.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById('photoPreview').src = e.target.result;
+          document.getElementById('photoPreview').style.display = 'block';
+        };
+        reader.readAsDataURL(e.target.files[0]);
+      }
+    });
+
+    document.getElementById('childSelect').addEventListener('change', async (e) => {
+      if (e.target.value === 'edit-profiles') {
+        showSection('profiles');
+        document.getElementById('childSelect').value = currentChild.name;
+      } else {
+        currentChild = children[e.target.value] || await Child.load(e.target.value);
+        updateTasks();
+        updateRewards();
+        updateChildSelect();
+      }
+    });
+
+    document.getElementById('taskTimerCheck').addEventListener('change', function() {
+      document.getElementById('taskTimer').style.display = this.checked ? 'block' : 'none';
+    });
+
+    document.getElementById('editTimerCheck').addEventListener('change', function() {
+      document.getElementById('editTimer').style.display = this.checked ? 'block' : 'none';
+    });
+
+    document.getElementById('addSubtaskBtn').addEventListener('click', () => {
+      document.getElementById('subtaskList').appendChild(createSubtaskInput());
+    });
+
+    document.getElementById('addEditSubtaskBtn').addEventListener('click', () => {
+      document.getElementById('editSubtaskList').appendChild(createSubtaskInput());
+    });
+
+    // Start the app
+    loadInitialData();
+  </script>
+</body>
+</html>
